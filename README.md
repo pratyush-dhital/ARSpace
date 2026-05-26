@@ -91,38 +91,6 @@ To maintain a fluid 60 FPS on mobile devices:
 *   **PBR Materials**: Use PBR (Physically Based Rendering) lighting model wisely. If you notice frame drops, switch components to Blinn or Lambert lighting models (configured in `modelLoader.js`).
 *   **Light Count**: Restrict your active lights. One `<ViroAmbientLight>` and one `<ViroDirectionalLight>` (for shadows) is usually optimal. Avoid adding multiple directional lights or spot lights.
 
----
-
-## 👥 Collaborative Git/GitHub Workflow
-
-If you are working in a team of two:
-
-### Person 1 (Main Development) Workflow
-1. Initialize the git repository and make the initial commit:
-   ```bash
-   git init
-   git add .
-   git commit -m "feat: initial commit of AR application foundation"
-   ```
-2. Create a GitHub Repository and push the code.
-3. Create feature branches for improvements (e.g., `feature/plane-detection-refinement`).
-
-### Person 2 (Support & Assets) Workflow
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   ```
-2. Find, resize, and optimize models (e.g., using Blender to compress/decimate models).
-3. Create a branch: `git checkout -b feature/optimize-chair-model`.
-4. Place the optimized `chair.glb` into `src/assets/models/` and commit the changes.
-5. Push the branch and open a **Pull Request** on GitHub for Person 1 to review and merge.
-
-### Crucial Git Note for React Native/Expo
-Always ensure your `.gitignore` includes the following files to prevent uploading gigabytes of compiled files to GitHub:
-```
-node_modules/
-.expo/
-android/
 ios/
 *.log
 ```
