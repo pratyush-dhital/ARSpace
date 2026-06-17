@@ -5,7 +5,11 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "prebuild": "expo prebuild"
+    "prebuild": "expo prebuild",
+    "postinstall": "node scripts/patch-expo-windows.js"
+  },
+  "engines": {
+    "node": ">=18 <23"
   },
   "dependencies": {
     "@reactvision/react-viro": "~2.41.6",

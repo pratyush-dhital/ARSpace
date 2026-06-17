@@ -1,135 +1,122 @@
-import React, { useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   ViroARScene,
   ViroAmbientLight,
   ViroDirectionalLight,
-  ViroARPlane,
-  ViroBox,
-  ViroSphere,
-  Viro3DObject,
 } from '@reactvision/react-viro';
-import { MODEL_CONFIGS } from '../utils/modelLoader';
+import PlacedObject from './PlacedObject';
 
 export default function ARScene(props) {
   const {
     activeObject,
     placedObjects,
+    selectedObjectId,
     onPlaceObject,
+    onSelectObject,
+    onRotationChange,
+    onPositionChange,
     setTrackingState,
+    cameraTransform,
+    setCameraTransform,
+    placeTrigger,
   } = props.sceneNavigator.viroAppProps;
 
-  // Track all detected plane anchors to support multiple surfaces
-  const [planes, setPlanes] = useState([]);
+  const arSceneRef = useRef(null);
 
-  // Defer state updates to the parent component to avoid React's warning
-  // about updating a component during another component's rendering phase.
   const safeSetTrackingState = (newState) => {
     Promise.resolve().then(() => {
       setTrackingState && setTrackingState(newState);
     });
   };
 
-  // Handles camera tracking state (initializing vs active searching)
   const handleTrackingUpdate = (state) => {
-    // 3 represents ViroConstants.TRACKING_NORMAL (tracking ok)
     if (state === 3) {
-      safeSetTrackingState(planes.length > 0 ? 'found' : 'searching');
+      safeSetTrackingState('found'); // 'found' represents the 'READY' status in the HUD
     } else {
       safeSetTrackingState('initializing');
     }
   };
 
-  // Triggered when ARCore/ARKit detects a new surface
-  const handleAnchorFound = (anchor) => {
-    if (anchor.type === 'plane') {
-      setPlanes((prevPlanes) => [...prevPlanes, anchor]);
-      safeSetTrackingState('found');
-    }
-  };
-
-  // Triggered when an anchor is updated (e.g. plane expands or moves)
-  const handleAnchorUpdated = (anchor) => {
-    if (anchor.type === 'plane') {
-      setPlanes((prevPlanes) =>
-        prevPlanes.map((p) => (p.anchorId === anchor.anchorId ? anchor : p))
-      );
-    }
-  };
-
-  // Triggered when an anchor is removed
-  const handleAnchorRemoved = (anchor) => {
-    if (anchor.type === 'plane') {
-      setPlanes((prevPlanes) => {
-        const updatedPlanes = prevPlanes.filter((p) => p.anchorId !== anchor.anchorId);
-        if (updatedPlanes.length === 0) {
-          safeSetTrackingState('searching');
-        }
-        return updatedPlanes;
+  const handleCameraTransformUpdate = (event) => {
+    // Only update transform if we don't have an active selection (editing) and have an active object to preview
+    if (selectedObjectId == null && activeObject) {
+      setCameraTransform({
+        position: event.position,
+        forward: event.forward,
+        rotation: event.rotation,
       });
     }
   };
 
-  // Handle user tap on detected plane
-  const handlePlaneClick = (planeAnchor, worldPosition) => {
-    // Calculate the local coordinate relative to the plane anchor position
-    const localPosition = [
-      worldPosition[0] - planeAnchor.position[0],
-      worldPosition[1] - planeAnchor.position[1],
-      worldPosition[2] - planeAnchor.position[2],
-    ];
+  const handlePlacement = async () => {
+    if (selectedObjectId != null) return;
+    if (!activeObject) return;
 
-    onPlaceObject(planeAnchor.anchorId, localPosition);
+    let position = null;
+
+    // Perform real-world raycast hit test to detect surfaces (floors/tables)
+    if (arSceneRef.current && cameraTransform.forward) {
+      try {
+        const results = await arSceneRef.current.performARHitTestWithRay(cameraTransform.forward);
+        if (results && results.length > 0) {
+          // Look for the first plane intersection (either using extent or infinite plane)
+          const planeHit = results.find(
+            r => r.type === 'ExistingPlaneUsingExtent' || r.type === 'ExistingPlane'
+          );
+          if (planeHit && planeHit.transform && planeHit.transform.position) {
+            position = planeHit.transform.position;
+          }
+        }
+      } catch (err) {
+        console.warn('Raycast hit test failed:', err);
+      }
+    }
+
+    // Fallback: if no plane is detected in the line of sight, place at a fixed 1.5m distance in front of the camera
+    if (!position) {
+      const distance = 1.5;
+      position = [
+        cameraTransform.position[0] + cameraTransform.forward[0] * distance,
+        cameraTransform.position[1] + cameraTransform.forward[1] * distance,
+        cameraTransform.position[2] + cameraTransform.forward[2] * distance,
+      ];
+    }
+
+    // Keep object vertical, rotate around Y (yaw) matching the camera
+    const rotation = [0, cameraTransform.rotation[1], 0];
+    onPlaceObject(position, rotation);
   };
 
-  // Helper to render individual placed objects using local coordinates relative to the plane anchor
-  const renderObject = (obj) => {
-    const config = MODEL_CONFIGS[obj.type];
-    if (!config) return null;
-
-    switch (obj.type) {
-      case 'cube':
-        return (
-          <ViroBox
-            key={obj.id}
-            position={obj.localPosition} // Anchored locally to the parent ViroARPlane coordinate space
-            scale={config.scale}
-            materials={[config.material]}
-          />
-        );
-      case 'sphere':
-        return (
-          <ViroSphere
-            key={obj.id}
-            position={obj.localPosition} // Anchored locally
-            scale={config.scale}
-            radius={1} // Sized via scale
-            materials={[config.material]}
-          />
-        );
-      case 'chair':
-        return (
-          <Viro3DObject
-            key={obj.id}
-            position={obj.localPosition} // Anchored locally
-            scale={config.scale}
-            source={config.source}
-            type="GLB"
-            materials={[config.material]}
-          />
-        );
-      default:
-        return null;
+  // Trigger placement when the HUD "PLACE" button is clicked in App.js
+  useEffect(() => {
+    if (placeTrigger && placeTrigger > 0) {
+      handlePlacement();
     }
+  }, [placeTrigger]);
+
+  const distance = 1.5;
+  const previewPosition = [
+    cameraTransform.position[0] + cameraTransform.forward[0] * distance,
+    cameraTransform.position[1] + cameraTransform.forward[1] * distance,
+    cameraTransform.position[2] + cameraTransform.forward[2] * distance,
+  ];
+  const previewRotation = [0, cameraTransform.rotation[1], 0];
+
+  const previewObj = {
+    id: 'preview',
+    type: activeObject,
+    position: previewPosition,
+    rotation: previewRotation,
   };
 
   return (
     <ViroARScene
+      ref={arSceneRef}
+      anchorDetectionTypes={['PlanesHorizontal']}
       onTrackingUpdated={handleTrackingUpdate}
-      onAnchorFound={handleAnchorFound}
-      onAnchorUpdated={handleAnchorUpdated}
-      onAnchorRemoved={handleAnchorRemoved}
+      onCameraTransformUpdate={handleCameraTransformUpdate}
+      onClick={handlePlacement}
     >
-      {/* Lights to enable shadowing and realistic textures */}
       <ViroAmbientLight color="#ffffff" intensity={250} />
       <ViroDirectionalLight
         color="#ffffff"
@@ -137,26 +124,25 @@ export default function ARScene(props) {
         intensity={800}
       />
 
-      {/* Render detected planes. Objects are rendered as children of their respective plane */}
-      {planes.map((plane) => (
-        <ViroARPlane
-          key={plane.anchorId}
-          anchorId={plane.anchorId}
-          onClick={(worldPosition) => handlePlaneClick(plane, worldPosition)}
-        >
-          {/* Subtle horizontal grid to indicate the interactive plane boundary */}
-          <ViroBox
-            position={[0, 0, 0]}
-            scale={[plane.width, 0.002, plane.height]}
-            materials={['neonBlue']}
-            opacity={0.12}
-          />
+      {/* Render placement preview if no object is selected and an object type is chosen */}
+      {selectedObjectId == null && activeObject && (
+        <PlacedObject
+          obj={previewObj}
+          isSelected={false}
+          isPreview={true}
+        />
+      )}
 
-          {/* Render all objects that belong to this specific plane */}
-          {placedObjects
-            .filter((obj) => obj.anchorId === plane.anchorId)
-            .map(renderObject)}
-        </ViroARPlane>
+      {/* Render all placed objects in the world */}
+      {placedObjects.map((obj) => (
+        <PlacedObject
+          key={obj.id}
+          obj={obj}
+          isSelected={selectedObjectId === obj.id}
+          onSelect={onSelectObject}
+          onRotationChange={onRotationChange}
+          onPositionChange={onPositionChange}
+        />
       ))}
     </ViroARScene>
   );

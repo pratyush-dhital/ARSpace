@@ -2,7 +2,13 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { COLORS, SHADOWS } from '../assets/styles/theme';
 
-export default function ControlButtons({ onClearAll, onToggleHelp, hasObjects }) {
+export default function ControlButtons({
+  onUndo,
+  onDeleteSelected,
+  selectedObjectId,
+  onToggleHelp,
+  hasObjects,
+}) {
   return (
     <View style={styles.container}>
       <TouchableOpacity
@@ -13,14 +19,24 @@ export default function ControlButtons({ onClearAll, onToggleHelp, hasObjects })
         <Text style={styles.buttonText}>?</Text>
       </TouchableOpacity>
 
-      {hasObjects && (
+      {selectedObjectId != null ? (
         <TouchableOpacity
-          style={[styles.button, styles.clearButton, SHADOWS.glass]}
-          onPress={onClearAll}
+          style={[styles.button, styles.deleteButton, SHADOWS.glass]}
+          onPress={onDeleteSelected}
           activeOpacity={0.8}
         >
           <Text style={styles.buttonText}>🗑️</Text>
         </TouchableOpacity>
+      ) : (
+        hasObjects && (
+          <TouchableOpacity
+            style={[styles.button, styles.undoButton, SHADOWS.glass]}
+            onPress={onUndo}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.buttonText}>↩️</Text>
+          </TouchableOpacity>
+        )
       )}
     </View>
   );
@@ -48,9 +64,13 @@ const styles = StyleSheet.create({
   helpButton: {
     // Info button styles
   },
-  clearButton: {
+  deleteButton: {
     backgroundColor: 'rgba(255, 51, 51, 0.15)',
     borderColor: COLORS.danger,
+  },
+  undoButton: {
+    backgroundColor: 'rgba(0, 229, 255, 0.12)',
+    borderColor: COLORS.primary,
   },
   buttonText: {
     fontSize: 18,
