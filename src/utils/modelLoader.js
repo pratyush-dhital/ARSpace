@@ -16,7 +16,11 @@ ViroMaterials.createMaterials({
   },
   woodChair: {
     lightingModel: 'Blinn',
-  }
+  },
+  selectionRing: {
+    diffuseColor: '#39FF14',
+    lightingModel: 'Constant',
+  },
 });
 
 export const MODEL_CONFIGS = {
@@ -24,19 +28,19 @@ export const MODEL_CONFIGS = {
     type: 'cube',
     material: 'neonBlue',
     scale: [0.2, 0.2, 0.2], // 20cm box
+    placementYOffset: 0.1, // half of scale Y — sits on plane
   },
   sphere: {
     type: 'sphere',
     material: 'neonPink',
-    scale: [0.12, 0.12, 0.12], // 24cm diameter sphere
+    scale: [0.12, 0.12, 0.12],
+    placementYOffset: 0.12, // radius at scale 1
   },
   chair: {
     type: '3d_model',
-    // We point to a local model file.
-    // If the file is missing, Viro can fail gracefully or render a placeholder.
-    // We use the require statement so React Native bundles it.
     source: require('../assets/models/chair.glb'),
     scale: [0.3, 0.3, 0.3],
     material: 'woodChair',
-  }
+    placementYOffset: 0.02,
+  },
 };

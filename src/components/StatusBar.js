@@ -2,14 +2,15 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { COLORS, SHADOWS } from '../assets/styles/theme';
 
-export default function StatusBar({ trackingState, activeObject }) {
-  let statusText = 'Initializing AR core engine...';
+export default function StatusBar({ trackingState, activeObject, selectedObjectId }) {
+  let statusText = 'Initializing AR system... Move camera around slowly.';
   let isSuccess = false;
 
-  if (trackingState === 'searching') {
-    statusText = 'Scan area. Move camera slowly to find flat surfaces.';
+  if (selectedObjectId != null) {
+    statusText = 'Edit mode: drag to move, pinch-rotate, or use buttons. Tap DONE when finished.';
+    isSuccess = true;
   } else if (trackingState === 'found') {
-    statusText = `Surface detected! Tap to place a ${activeObject.toUpperCase()}.`;
+    statusText = `Aim camera & tap screen or press PLACE to position your ${activeObject}.`;
     isSuccess = true;
   }
 

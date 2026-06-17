@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { COLORS, SHADOWS } from '../assets/styles/theme';
 
-export default function ObjectSelector({ activeObject, onSelect }) {
+export default function ObjectSelector({ activeObject, onSelect, disabled }) {
   const objects = [
     { type: 'cube', label: 'Cube', icon: '■', desc: 'Geometric Box' },
     { type: 'sphere', label: 'Sphere', icon: '●', desc: 'Smooth Orb' },
@@ -10,8 +10,10 @@ export default function ObjectSelector({ activeObject, onSelect }) {
   ];
 
   return (
-    <View style={[styles.container, SHADOWS.glass]}>
-      <Text style={styles.title}>SELECT OBJECT TO PLACE</Text>
+    <View style={[styles.container, SHADOWS.glass, disabled && styles.containerDisabled]}>
+      <Text style={styles.title}>
+        {disabled ? 'FINISH EDITING TO CHANGE OBJECT' : 'SELECT OBJECT TO PLACE'}
+      </Text>
       <View style={styles.selectorRow}>
         {objects.map((obj) => {
           const isSelected = activeObject === obj.type;
@@ -25,6 +27,7 @@ export default function ObjectSelector({ activeObject, onSelect }) {
               ]}
               onPress={() => onSelect(obj.type)}
               activeOpacity={0.8}
+              disabled={disabled}
             >
               <Text style={[styles.icon, isSelected ? styles.selectedIcon : null]}>
                 {obj.icon}
@@ -42,6 +45,9 @@ export default function ObjectSelector({ activeObject, onSelect }) {
 }
 
 const styles = StyleSheet.create({
+  containerDisabled: {
+    opacity: 0.55,
+  },
   container: {
     position: 'absolute',
     bottom: 30,
