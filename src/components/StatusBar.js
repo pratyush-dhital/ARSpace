@@ -1,31 +1,23 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, Platform } from 'react-native';
 import { COLORS, SHADOWS } from '../assets/styles/theme';
 
-export default function StatusBar({ trackingState, activeObject, selectedObjectId }) {
-  let statusText = 'Initializing AR system... Move camera around slowly.';
-  let isSuccess = false;
+export default function StatusBar({ trackingState, selectedObjectId }) {
+  let isReady = trackingState === 'found' || selectedObjectId != null;
+  let stateLabel = trackingState === 'found' ? 'Ready' : 'Scanning';
 
   if (selectedObjectId != null) {
-    statusText = 'Edit mode: drag to move, pinch-rotate, or use buttons. Tap DONE when finished.';
-    isSuccess = true;
-  } else if (trackingState === 'found') {
-    statusText = `Aim camera & tap screen or press PLACE to position your ${activeObject}.`;
-    isSuccess = true;
+    stateLabel = 'Editing';
   }
 
   return (
     <View style={[styles.container, SHADOWS.glass]}>
-      <View style={styles.headerRow}>
-        <Text style={styles.appName}>AR SPACE PLACER</Text>
-        <View style={styles.badgeContainer}>
-          <View style={[styles.indicatorDot, isSuccess ? styles.indicatorSuccess : styles.indicatorSearching]} />
-          <Text style={[styles.badgeText, isSuccess ? styles.badgeTextSuccess : styles.badgeTextSearching]}>
-            {isSuccess ? 'READY' : 'SCANNING'}
-          </Text>
-        </View>
+      <View style={styles.badgeContainer}>
+        <View style={[styles.indicatorDot, isReady ? styles.indicatorSuccess : styles.indicatorSearching]} />
+        <Text style={[styles.badgeText, isReady ? styles.badgeTextSuccess : styles.badgeTextSearching]}>
+          {stateLabel}
+        </Text>
       </View>
-      <Text style={styles.statusDescription}>{statusText}</Text>
     </View>
   );
 }
@@ -33,41 +25,27 @@ export default function StatusBar({ trackingState, activeObject, selectedObjectI
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 50,
-    left: 16,
-    right: 16,
+    top: 60,
+    alignSelf: 'center',
     backgroundColor: COLORS.surface,
     borderColor: COLORS.border,
     borderWidth: 1,
     borderRadius: 20,
-    paddingVertical: 14,
+    paddingVertical: 8,
     paddingHorizontal: 16,
-  },
-  headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
-  },
-  appName: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: COLORS.text,
-    letterSpacing: 1.5,
+    justifyContent: 'center',
   },
   badgeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 10,
   },
   indicatorDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    marginRight: 6,
+    marginRight: 8,
   },
   indicatorSuccess: {
     backgroundColor: COLORS.success,
@@ -84,19 +62,15 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   badgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 1.5,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },
   badgeTextSuccess: {
     color: COLORS.success,
   },
   badgeTextSearching: {
     color: COLORS.primary,
-  },
-  statusDescription: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
   },
 });

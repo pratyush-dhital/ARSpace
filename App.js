@@ -8,14 +8,17 @@ import {
   Platform,
   SafeAreaView,
   Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { ViroARSceneNavigator } from '@reactvision/react-viro';
 import ARScene from './src/components/ARScene';
 import StatusBar from './src/components/StatusBar';
 import ObjectSelector from './src/components/ObjectSelector';
-import ControlButtons from './src/components/ControlButtons';
 import ObjectEditPanel from './src/components/ObjectEditPanel';
 import { COLORS, SHADOWS } from './src/assets/styles/theme';
+import { MODEL_CONFIGS } from './src/utils/modelLoader';
+import * as DocumentPicker from 'expo-document-picker';
 
 export default function App() {
   const [hasCameraPermission, setHasCameraPermission] = useState(false);
@@ -25,12 +28,17 @@ export default function App() {
   const [selectedObjectId, setSelectedObjectId] = useState(null);
   const [showHelp, setShowHelp] = useState(false);
 
-  // Track the camera transform (shared with ARScene via viroAppProps)
-  const [cameraTransform, setCameraTransform] = useState({
-    position: [0, 0, 0],
-    forward: [0, 0, -1],
-    rotation: [0, 0, 0],
-  });
+  // Custom 3D Model state
+  const [customModels, setCustomModels] = useState([]);
+  const [showAddCustomModal, setShowAddCustomModal] = useState(false);
+  const [customName, setCustomName] = useState('');
+  const [customSourceType, setCustomSourceType] = useState('local'); // 'local' or 'url'
+  const [customUrl, setCustomUrl] = useState('');
+  const [customFile, setCustomFile] = useState(null); // { uri, name }
+  const [customScale, setCustomScale] = useState(1.0);
+
+  // Track the camera position using a ref to prevent full-HUD re-renders at 60fps
+  const cameraPositionRef = React.useRef([0, 0, 0]);
 
   const [placeTrigger, setPlaceTrigger] = useState(0);
 
@@ -109,7 +117,7 @@ export default function App() {
         if (obj.id !== selectedObjectId) return obj;
 
         const objPos = obj.position ?? [0, 0, -1.5];
-        const camPos = cameraTransform.position ?? [0, 0, 0];
+        const camPos = cameraPositionRef.current || [0, 0, 0];
 
         // Vector from camera to object
         const dx = objPos[0] - camPos[0];
@@ -166,13 +174,117 @@ export default function App() {
     setPlaceTrigger(Date.now());
   };
 
+  // Document picker handler
+  const handlePickFile = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (res.type === 'success') {
+        const name = res.name;
+        const uri = res.uri;
+
+        if (name.toLowerCase().endsWith('.glb') || name.toLowerCase().endsWith('.gltf')) {
+          setCustomFile({ uri, name });
+          // Auto-fill custom name if it is currently empty
+          if (!customName) {
+            const baseName = name.substring(0, name.lastIndexOf('.')) || name;
+            setCustomName(baseName);
+          }
+        } else {
+          Alert.alert('Invalid Format', 'Please choose a .glb or .gltf 3D model.');
+        }
+      }
+    } catch (err) {
+      console.warn('File picking failed:', err);
+    }
+  };
+
+  // Custom model submit handler
+  const handleAddCustomModel = () => {
+    if (!customName.trim()) {
+      Alert.alert('Error', 'Please enter a name for the model.');
+      return;
+    }
+
+    let source = null;
+    let fileFormat = 'GLB';
+
+    if (customSourceType === 'local') {
+      if (!customFile) {
+        Alert.alert('Error', 'Please select a local 3D model file.');
+        return;
+      }
+      source = { uri: customFile.uri };
+      fileFormat = customFile.name.toLowerCase().endsWith('.gltf') ? 'GLTF' : 'GLB';
+    } else {
+      if (!customUrl.trim()) {
+        Alert.alert('Error', 'Please enter a web URL.');
+        return;
+      }
+      source = { uri: customUrl.trim() };
+      fileFormat = customUrl.toLowerCase().endsWith('.gltf') ? 'GLTF' : 'GLB';
+    }
+
+    const newModelId = 'custom_' + Date.now();
+    const scaleValue = customScale; // Scale factor mapping directly to the metric system (e.g., 1.0 means [1, 1, 1] meters)
+
+    const newCustomModel = {
+      id: newModelId,
+      type: 'custom_model',
+      label: customName.trim(),
+      icon: '📦',
+      desc: customSourceType === 'local' ? 'Local File' : 'Web URL',
+      source,
+      scale: [scaleValue, scaleValue, scaleValue],
+      fileFormat,
+      placementYOffset: 0.0,
+    };
+
+    setCustomModels((prev) => [...prev, newCustomModel]);
+    setActiveObject(newModelId); // select the new model
+    setShowAddCustomModal(false);
+
+    // Reset fields
+    setCustomName('');
+    setCustomUrl('');
+    setCustomFile(null);
+    setCustomScale(1.0);
+  };
+
+  const handleCancelAddCustom = () => {
+    setShowAddCustomModal(false);
+    setCustomName('');
+    setCustomUrl('');
+    setCustomFile(null);
+    setCustomScale(1.0);
+  };
+
+  // Compile full model configuration dictionary to pass to ARScene and edit panels
+  const combinedModelConfigs = {
+    ...MODEL_CONFIGS,
+    ...customModels.reduce((acc, m) => {
+      acc[m.id] = {
+        type: '3d_model',
+        source: m.source,
+        scale: m.scale,
+        fileFormat: m.fileFormat,
+        placementYOffset: m.placementYOffset,
+        label: m.label,
+      };
+      return acc;
+    }, {}),
+  };
+
   const selectedObject = placedObjects.find((o) => o.id === selectedObjectId);
 
   if (!hasCameraPermission) {
     return (
       <SafeAreaView style={styles.permissionContainer}>
         <View style={[styles.permissionCard, SHADOWS.glass]}>
-          <Text style={styles.permissionTitle}>CAMERA ACCESS NEEDED</Text>
+          <Text style={styles.permissionTitle}>Camera Access Needed</Text>
           <Text style={styles.permissionDescription}>
             This application requires access to your camera to overlay virtual 3D models in your
             physical workspace.
@@ -182,12 +294,17 @@ export default function App() {
             onPress={requestCameraPermission}
             activeOpacity={0.85}
           >
-            <Text style={styles.permissionButtonText}>ALLOW CAMERA</Text>
+            <Text style={styles.permissionButtonText}>Allow Camera</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
+
+  const activeObjectLabel =
+    customModels.find((m) => m.id === activeObject)?.label ||
+    MODEL_CONFIGS[activeObject]?.label ||
+    activeObject;
 
   return (
     <View style={styles.container}>
@@ -199,31 +316,54 @@ export default function App() {
           activeObject,
           placedObjects,
           selectedObjectId,
-          cameraTransform,
-          setCameraTransform,
           placeTrigger,
           onPlaceObject: handlePlaceObject,
           onSelectObject: handleSelectObject,
           onRotationChange: handleRotationChange,
           onPositionChange: handlePositionChange,
           setTrackingState,
+          modelConfigs: combinedModelConfigs,
+          onCameraPositionUpdate: (pos) => {
+            cameraPositionRef.current = pos;
+          },
         }}
         style={StyleSheet.absoluteFill}
       />
 
       <StatusBar
         trackingState={trackingState}
-        activeObject={activeObject}
+        activeObject={activeObjectLabel}
         selectedObjectId={selectedObjectId}
-      />
-
-      <ControlButtons
         onUndo={handleUndo}
-        onDeleteSelected={handleDeleteSelected}
-        selectedObjectId={selectedObjectId}
         onToggleHelp={() => setShowHelp(true)}
         hasObjects={placedObjects.length > 0}
       />
+
+      {/* Top Right Controls (Undo and Help) */}
+      <View style={styles.topRightControls}>
+        {selectedObjectId == null && (
+          <TouchableOpacity
+            style={[
+              styles.smallPillButton,
+              SHADOWS.glass,
+              !placedObjects.length && styles.smallPillButtonDisabled,
+            ]}
+            onPress={handleUndo}
+            disabled={!placedObjects.length}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.smallPillButtonText}>↩</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={[styles.smallPillButton, SHADOWS.glass]}
+          onPress={() => setShowHelp(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.smallPillButtonText}>?</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Floating placement button */}
       {selectedObjectId == null && activeObject && (
@@ -232,31 +372,131 @@ export default function App() {
           onPress={triggerHUDPlacement}
           activeOpacity={0.8}
         >
-          <Text style={styles.placeButtonText}>PLACE {activeObject.toUpperCase()}</Text>
+          <Text style={styles.placeButtonText}>PLACE {activeObjectLabel.toUpperCase()}</Text>
         </TouchableOpacity>
       )}
 
-      {selectedObject && (
+      {selectedObject ? (
         <ObjectEditPanel
-          selectedType={selectedObject.type}
+          selectedType={
+            combinedModelConfigs[selectedObject.type]?.label ||
+            selectedObject.type
+          }
           onRotateLeft={(deg) => rotateSelected(-deg)}
           onRotateRight={(deg) => rotateSelected(deg)}
           onDelete={handleDeleteSelected}
           onDeselect={() => setSelectedObjectId(null)}
           onAdjustDistance={adjustSelectedDistance}
         />
+      ) : (
+        <ObjectSelector
+          activeObject={activeObject}
+          onSelect={handleSelectPlacementType}
+          disabled={false}
+          customModels={customModels}
+          onAddCustomPress={() => setShowAddCustomModal(true)}
+        />
       )}
 
-      <ObjectSelector
-        activeObject={activeObject}
-        onSelect={handleSelectPlacementType}
-        disabled={selectedObjectId != null}
-      />
+      {/* Import Custom Model Modal */}
+      <Modal visible={showAddCustomModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, SHADOWS.glass, { maxWidth: 380 }]}>
+            <Text style={styles.modalHeader}>Import Custom Model</Text>
 
+            <Text style={styles.inputLabel}>Model Name</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. My Futuristic Car"
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              value={customName}
+              onChangeText={setCustomName}
+            />
+
+            <Text style={styles.inputLabel}>Source Type</Text>
+            <View style={styles.tabContainer}>
+              <TouchableOpacity
+                style={[styles.tabButton, customSourceType === 'local' && styles.tabButtonActive]}
+                onPress={() => setCustomSourceType('local')}
+              >
+                <Text style={[styles.tabButtonText, customSourceType === 'local' && styles.tabButtonTextActive]}>
+                  Local File
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tabButton, customSourceType === 'url' && styles.tabButtonActive]}
+                onPress={() => setCustomSourceType('url')}
+              >
+                <Text style={[styles.tabButtonText, customSourceType === 'url' && styles.tabButtonTextActive]}>
+                  Web URL
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {customSourceType === 'local' ? (
+              <View style={styles.sourceSection}>
+                <TouchableOpacity style={styles.filePickerBtn} onPress={handlePickFile} activeOpacity={0.8}>
+                  <Text style={styles.filePickerBtnText}>
+                    {customFile ? 'Change GLB/GLTF File' : 'Choose GLB/GLTF File'}
+                  </Text>
+                </TouchableOpacity>
+                {customFile && (
+                  <Text style={styles.fileNameText} numberOfLines={1}>
+                    Selected: {customFile.name}
+                  </Text>
+                )}
+              </View>
+            ) : (
+              <View style={styles.sourceSection}>
+                <Text style={styles.inputLabel}>Model Web URL</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="https://example.com/assets/robot.glb"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  value={customUrl}
+                  onChangeText={setCustomUrl}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+            )}
+
+            <Text style={styles.inputLabel}>Initial Scale Factor</Text>
+            <View style={styles.scaleContainer}>
+              {[0.1, 0.5, 1.0, 2.0].map((factor) => (
+                <TouchableOpacity
+                  key={factor}
+                  style={[styles.scaleButton, customScale === factor && styles.scaleButtonActive]}
+                  onPress={() => setCustomScale(factor)}
+                >
+                  <Text style={[styles.scaleButtonText, customScale === factor && styles.scaleButtonTextActive]}>
+                    {factor}x
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity style={[styles.modalActionBtn, styles.cancelBtn]} onPress={handleCancelAddCustom}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalActionBtn, styles.submitBtn]}
+                onPress={handleAddCustomModel}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.submitBtnText}>Add Model</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Help Instructions Modal */}
       <Modal visible={showHelp} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, SHADOWS.glass]}>
-            <Text style={styles.modalHeader}>HOW TO USE AR APP</Text>
+            <Text style={styles.modalHeader}>How to Use AR App</Text>
 
             <View style={styles.stepContainer}>
               <View style={styles.stepNumberBadge}>
@@ -272,7 +512,7 @@ export default function App() {
                 <Text style={styles.stepNumberText}>2</Text>
               </View>
               <Text style={styles.stepDesc}>
-                Pick Cube, Sphere, or Chair, then tap the screen or press the PLACE button to fix it in space.
+                Pick a 3D model, then tap the screen or press the PLACE button to fix it in space.
               </Text>
             </View>
 
@@ -290,7 +530,7 @@ export default function App() {
                 <Text style={styles.stepNumberText}>4</Text>
               </View>
               <Text style={styles.stepDesc}>
-                Use the edit panel to rotate in increments or delete the object. Tap DONE to finalize.
+                Use the edit panel to rotate or delete the object. Tap Done to finalize.
               </Text>
             </View>
 
@@ -299,7 +539,7 @@ export default function App() {
               onPress={() => setShowHelp(false)}
               activeOpacity={0.8}
             >
-              <Text style={styles.modalCloseText}>START PLACING</Text>
+              <Text style={styles.modalCloseText}>Start Placing</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -313,6 +553,35 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  topRightControls: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  smallPillButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.border,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+  },
+  smallPillButtonDisabled: {
+    opacity: 0.35,
+  },
+  smallPillButtonText: {
+    fontSize: 16,
+    color: COLORS.text,
+    fontWeight: '600',
+    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+  },
   permissionContainer: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -324,7 +593,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderColor: COLORS.border,
     borderWidth: 1,
-    borderRadius: 28,
+    borderRadius: 24,
     padding: 32,
     alignItems: 'center',
     width: '100%',
@@ -332,11 +601,12 @@ const styles = StyleSheet.create({
   },
   permissionTitle: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '600',
     color: COLORS.text,
-    letterSpacing: 2,
+    letterSpacing: 1.5,
     marginBottom: 16,
     textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },
   permissionDescription: {
     fontSize: 14,
@@ -344,6 +614,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 28,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },
   permissionButton: {
     backgroundColor: COLORS.primary,
@@ -353,32 +624,34 @@ const styles = StyleSheet.create({
   },
   permissionButtonText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     color: COLORS.background,
-    letterSpacing: 1.5,
+    letterSpacing: 1,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },
   placeButton: {
     position: 'absolute',
-    bottom: 180,
+    bottom: 195,
     alignSelf: 'center',
+    width: 220,
+    height: 60,
     backgroundColor: COLORS.primary,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderWidth: 1,
     borderRadius: 30,
-    paddingVertical: 14,
-    paddingHorizontal: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
   placeButtonText: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '600',
     color: COLORS.background,
     letterSpacing: 2,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -387,18 +660,160 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderColor: COLORS.border,
     borderWidth: 1,
-    borderRadius: 28,
+    borderRadius: 24,
     padding: 28,
     width: '100%',
     maxWidth: 360,
   },
   modalHeader: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '600',
     color: COLORS.text,
-    letterSpacing: 2,
+    letterSpacing: 1.5,
     marginBottom: 24,
     textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+  },
+  inputLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    letterSpacing: 1,
+    marginBottom: 6,
+    marginTop: 12,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+  },
+  textInput: {
+    backgroundColor: COLORS.surfaceLight,
+    borderColor: COLORS.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    color: COLORS.text,
+    fontSize: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 8,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  tabButtonActive: {
+    backgroundColor: COLORS.surfaceLight,
+    borderColor: COLORS.border,
+    borderWidth: 1,
+  },
+  tabButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+  },
+  tabButtonTextActive: {
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  sourceSection: {
+    minHeight: 65,
+    justifyContent: 'center',
+  },
+  filePickerBtn: {
+    backgroundColor: 'rgba(0, 194, 255, 0.12)',
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  filePickerBtnText: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+  },
+  fileNameText: {
+    color: COLORS.success,
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 6,
+    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+  },
+  scaleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  scaleButton: {
+    flex: 1,
+    marginHorizontal: 3,
+    backgroundColor: COLORS.surfaceLight,
+    borderColor: COLORS.border,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  scaleButtonActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: 'rgba(0, 194, 255, 0.08)',
+  },
+  scaleButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+  },
+  scaleButtonTextActive: {
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  modalActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  modalActionBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: COLORS.border,
+    borderWidth: 1,
+    marginRight: 6,
+  },
+  cancelBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    letterSpacing: 1,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+  },
+  submitBtn: {
+    backgroundColor: COLORS.primary,
+    marginLeft: 6,
+  },
+  submitBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.background,
+    letterSpacing: 1,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },
   stepContainer: {
     flexDirection: 'row',
@@ -409,7 +824,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: 'rgba(0, 229, 255, 0.15)',
+    backgroundColor: 'rgba(0, 194, 255, 0.15)',
     borderColor: COLORS.primary,
     borderWidth: 1,
     alignItems: 'center',
@@ -419,13 +834,15 @@ const styles = StyleSheet.create({
   stepNumberText: {
     color: COLORS.primary,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },
   stepDesc: {
     flex: 1,
     fontSize: 13,
     color: COLORS.textSecondary,
     lineHeight: 18,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },
   modalCloseBtn: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
@@ -438,8 +855,9 @@ const styles = StyleSheet.create({
   },
   modalCloseText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     color: COLORS.text,
-    letterSpacing: 1.5,
+    letterSpacing: 1,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },
 });
