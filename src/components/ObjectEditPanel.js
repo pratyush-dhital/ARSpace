@@ -15,8 +15,8 @@ export default function ObjectEditPanel({
   return (
     <View style={[styles.container, SHADOWS.glass]}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Editing {selectedType}</Text>
-        <TouchableOpacity onPress={onDeselect} style={styles.doneBtn} activeOpacity={0.8}>
+        <Text style={styles.title}>MODIFYING {selectedType.toUpperCase()}</Text>
+        <TouchableOpacity onPress={onDeselect} style={styles.doneBtn} activeOpacity={0.85}>
           <Text style={styles.doneText}>Done</Text>
         </TouchableOpacity>
       </View>
@@ -45,7 +45,7 @@ export default function ObjectEditPanel({
           activeOpacity={0.7}
         >
           <Text style={styles.deleteIconText}>🗑</Text>
-          <Text style={styles.deleteBtnLabel}>Delete</Text>
+          <Text style={styles.deleteBtnLabel}>Deconstruct</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -73,41 +73,42 @@ export default function ObjectEditPanel({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 30,
+    bottom: 24,
     left: 16,
     right: 16,
-    backgroundColor: COLORS.surface,
-    borderColor: COLORS.border,
-    borderWidth: 1,
+    backgroundColor: 'rgba(18, 22, 28, 0.92)',
+    borderColor: 'rgba(197, 160, 89, 0.25)',
+    borderWidth: 1.5,
     borderRadius: 24,
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 16,
+    zIndex: 10,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   title: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.text,
-    letterSpacing: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#C5A059',
+    letterSpacing: 1.5,
     fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },
   doneBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
+    backgroundColor: '#262423',
+    borderColor: '#C5A059',
+    borderWidth: 1,
+    borderRadius: 10,
     paddingVertical: 6,
     paddingHorizontal: 14,
-    borderColor: COLORS.border,
-    borderWidth: 1,
   },
   doneText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.primary,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#EADBB6',
     letterSpacing: 0.5,
     fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },
@@ -118,41 +119,41 @@ const styles = StyleSheet.create({
   },
   iconBtn: {
     flex: 1,
-    marginHorizontal: 4,
+    marginHorizontal: 3,
     height: 52,
-    backgroundColor: COLORS.surfaceLight,
-    borderColor: COLORS.border,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   deleteBtn: {
-    backgroundColor: 'rgba(255, 77, 157, 0.12)',
-    borderColor: COLORS.accent,
+    backgroundColor: 'rgba(255, 77, 157, 0.15)',
+    borderColor: '#FF4D9D',
     borderWidth: 1,
   },
   iconText: {
-    fontSize: 16,
-    color: COLORS.text,
+    fontSize: 15,
+    color: '#FFFFFF',
     fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },
   deleteIconText: {
-    fontSize: 16,
-    color: COLORS.accent,
+    fontSize: 15,
+    color: '#FF4D9D',
     fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },
   btnLabel: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '500',
-    color: COLORS.textSecondary,
+    color: 'rgba(255, 255, 255, 0.4)',
     marginTop: 2,
     fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },
   deleteBtnLabel: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '600',
-    color: COLORS.accent,
+    color: '#FF4D9D',
     marginTop: 2,
     fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },

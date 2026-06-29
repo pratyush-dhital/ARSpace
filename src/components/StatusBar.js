@@ -3,18 +3,22 @@ import { StyleSheet, Text, View, Platform } from 'react-native';
 import { COLORS, SHADOWS } from '../assets/styles/theme';
 
 export default function StatusBar({ trackingState, selectedObjectId }) {
-  let isReady = trackingState === 'found' || selectedObjectId != null;
-  let stateLabel = trackingState === 'found' ? 'Ready' : 'Scanning';
+  let stateLabel = 'SCANNING TERRAIN';
+  let color = COLORS.warning; // Yellow/Orange scanning color
 
   if (selectedObjectId != null) {
-    stateLabel = 'Editing';
+    stateLabel = 'REFINING STRUCTURE';
+    color = '#00C2FF'; // Blue refining color
+  } else if (trackingState === 'found') {
+    stateLabel = 'READY TO BUILD';
+    color = COLORS.success; // Lime Green ready color
   }
 
   return (
     <View style={[styles.container, SHADOWS.glass]}>
       <View style={styles.badgeContainer}>
-        <View style={[styles.indicatorDot, isReady ? styles.indicatorSuccess : styles.indicatorSearching]} />
-        <Text style={[styles.badgeText, isReady ? styles.badgeTextSuccess : styles.badgeTextSearching]}>
+        <View style={[styles.indicatorDot, { backgroundColor: color, shadowColor: color }]} />
+        <Text style={[styles.badgeText, { color }]}>
           {stateLabel}
         </Text>
       </View>
@@ -25,10 +29,10 @@ export default function StatusBar({ trackingState, selectedObjectId }) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 60,
+    top: 55,
     alignSelf: 'center',
-    backgroundColor: COLORS.surface,
-    borderColor: COLORS.border,
+    backgroundColor: 'rgba(18, 22, 28, 0.85)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
     borderRadius: 20,
     paddingVertical: 8,
@@ -36,6 +40,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 20,
   },
   badgeContainer: {
     flexDirection: 'row',
@@ -46,31 +51,15 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     marginRight: 8,
-  },
-  indicatorSuccess: {
-    backgroundColor: COLORS.success,
-    shadowColor: COLORS.success,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 4,
-  },
-  indicatorSearching: {
-    backgroundColor: COLORS.primary,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
+    elevation: 3,
   },
   badgeText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 1.5,
     fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
-  },
-  badgeTextSuccess: {
-    color: COLORS.success,
-  },
-  badgeTextSearching: {
-    color: COLORS.primary,
   },
 });
