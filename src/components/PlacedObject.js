@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { ViroBox, ViroSphere, Viro3DObject, ViroNode } from '@reactvision/react-viro';
+import { ViroBox, ViroSphere, Viro3DObject, ViroNode, ViroParticleEmitter, ViroSpotLight } from '@reactvision/react-viro';
 import { MODEL_CONFIGS } from '../utils/modelLoader';
 
 const SELECTION_RING_SCALE = [0.28, 0.004, 0.28];
@@ -157,6 +157,167 @@ export default function PlacedObject({
       dragType="FixedDistance"
     >
       {model}
+
+      {/* Dynamic Interaction Effects */}
+      {!isPreview && obj.interactionActive && config.interaction && (
+        <>
+          {config.interaction.type === 'fire' && (
+            <>
+              {/* Flame Emitter */}
+              <ViroParticleEmitter
+                position={[0, 0.15, 0]}
+                duration={1200}
+                run={true}
+                loop={true}
+                fixedToEmitter={true}
+                image={{
+                  source: require('../assets/particles/particle_fire.png'),
+                  height: 0.25,
+                  width: 0.25,
+                  bloomThreshold: 0.0,
+                }}
+                spawnBehavior={{
+                  particleLifetime: [800, 1200],
+                  emissionRatePerSecond: [30, 45],
+                  spawnVolume: { shape: 'box', params: [0.15, 0.05, 0.15], spawnOnSurface: false },
+                  maxParticles: 150,
+                }}
+                particleAppearance={{
+                  opacity: {
+                    initialRange: [0.8, 1.0],
+                    factor: 'time',
+                    interpolation: [{ endValue: 0.0, interval: [600, 1200] }],
+                  },
+                  scale: {
+                    initialRange: [[0.8, 0.8, 0.8], [1.2, 1.2, 1.2]],
+                    factor: 'time',
+                    interpolation: [{ endValue: [0.1, 0.1, 0.1], interval: [800, 1200] }],
+                  },
+                }}
+                particlePhysics={{
+                  velocity: {
+                    initialRange: [[-0.08, 0.4, -0.08], [0.08, 0.7, 0.08]],
+                  },
+                }}
+              />
+              {/* Embers Emitter */}
+              <ViroParticleEmitter
+                position={[0, 0.15, 0]}
+                duration={2000}
+                run={true}
+                loop={true}
+                fixedToEmitter={true}
+                image={{
+                  source: require('../assets/particles/particle_sparkle.png'),
+                  height: 0.05,
+                  width: 0.05,
+                  bloomThreshold: 0.0,
+                }}
+                spawnBehavior={{
+                  particleLifetime: [1200, 1800],
+                  emissionRatePerSecond: [5, 10],
+                  spawnVolume: { shape: 'sphere', params: [0.1], spawnOnSurface: false },
+                  maxParticles: 50,
+                }}
+                particleAppearance={{
+                  opacity: {
+                    initialRange: [0.9, 1.0],
+                    factor: 'time',
+                    interpolation: [{ endValue: 0.0, interval: [1000, 1800] }],
+                  },
+                  scale: {
+                    initialRange: [[0.5, 0.5, 0.5], [1.0, 1.0, 1.0]],
+                    factor: 'time',
+                    interpolation: [{ endValue: [0, 0, 0], interval: [1000, 1800] }],
+                  },
+                }}
+                particlePhysics={{
+                  velocity: {
+                    initialRange: [[-0.15, 0.8, -0.15], [0.15, 1.3, 0.15]],
+                  },
+                }}
+              />
+              {/* Warm Dynamic Light cast onto environment */}
+              <ViroSpotLight
+                position={[0, 0.3, 0]}
+                color="#FF6D00"
+                direction={[0, -1, 0]}
+                intensity={800}
+                innerAngle={5}
+                outerAngle={45}
+                attenuationStartDistance={0.1}
+                attenuationEndDistance={2.5}
+              />
+            </>
+          )}
+
+          {config.interaction.type === 'torch_glow' && (
+            <>
+              {/* Light Up Castle Torches (Multiple warm spotlights) */}
+              <ViroSpotLight
+                position={[0.3, 0.9, 0.3]}
+                color="#FFA000"
+                direction={[0, -1, 0]}
+                intensity={1200}
+                innerAngle={10}
+                outerAngle={50}
+                attenuationStartDistance={0.2}
+                attenuationEndDistance={3.0}
+              />
+              <ViroSpotLight
+                position={[-0.3, 0.9, -0.3]}
+                color="#FFA000"
+                direction={[0, -1, 0]}
+                intensity={1200}
+                innerAngle={10}
+                outerAngle={50}
+                attenuationStartDistance={0.2}
+                attenuationEndDistance={3.0}
+              />
+            </>
+          )}
+
+          {config.interaction.type === 'aura' && (
+            <ViroParticleEmitter
+              position={[0, 0.4, 0]}
+              duration={1500}
+              run={true}
+              loop={true}
+              fixedToEmitter={true}
+              image={{
+                source: require('../assets/particles/particle_sparkle.png'),
+                height: 0.12,
+                width: 0.12,
+                bloomThreshold: 0.0,
+              }}
+              spawnBehavior={{
+                particleLifetime: [1000, 1500],
+                emissionRatePerSecond: [20, 30],
+                spawnVolume: { shape: 'sphere', params: [0.35], spawnOnSurface: false },
+                maxParticles: 100,
+              }}
+              particleAppearance={{
+                opacity: {
+                  initialRange: [0.7, 1.0],
+                  factor: 'time',
+                  interpolation: [{ endValue: 0.0, interval: [800, 1500] }],
+                },
+                scale: {
+                  initialRange: [[0.8, 0.8, 0.8], [1.2, 1.2, 1.2]],
+                  factor: 'time',
+                  interpolation: [{ endValue: [0.0, 0.0, 0.0], interval: [800, 1500] }],
+                },
+              }}
+              particlePhysics={{
+                velocity: {
+                  initialRange: [[-0.2, 0.3, -0.2], [0.2, 0.6, 0.2]],
+                },
+              }}
+            />
+          )}
+        </>
+      )}
+
       {!isPreview && isSelected && (
         <ViroBox
           position={[0, 0.002, 0]}

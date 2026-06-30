@@ -76,10 +76,24 @@ export default function App() {
       type: activeObject,
       position,
       rotation,
+      interactionActive: false,
     };
     setPlacedObjects((prev) => [...prev, newObject]);
     setSelectedObjectId(null);
     setActiveObject(null); // Clear preview after placement
+  };
+
+  const toggleSelectedInteraction = () => {
+    if (selectedObjectId == null) return;
+    setPlacedObjects((prev) =>
+      prev.map((obj) => {
+        if (obj.id !== selectedObjectId) return obj;
+        return {
+          ...obj,
+          interactionActive: !obj.interactionActive,
+        };
+      })
+    );
   };
 
   const handlePositionChange = (objectId, position) => {
@@ -378,6 +392,11 @@ export default function App() {
           onDelete={handleDeleteSelected}
           onDeselect={() => setSelectedObjectId(null)}
           onAdjustDistance={adjustSelectedDistance}
+          hasInteraction={!!combinedModelConfigs[selectedObject.type]?.interaction}
+          interactionActive={!!selectedObject.interactionActive}
+          interactionLabel={combinedModelConfigs[selectedObject.type]?.interaction?.label || 'Interact'}
+          interactionIcon={combinedModelConfigs[selectedObject.type]?.interaction?.icon || '⚡'}
+          onToggleInteraction={toggleSelectedInteraction}
         />
       ) : (
         <ObjectSelector

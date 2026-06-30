@@ -11,6 +11,11 @@ export default function ObjectEditPanel({
   onDelete,
   onDeselect,
   onAdjustDistance,
+  hasInteraction = false,
+  interactionActive = false,
+  interactionLabel = 'Interact',
+  interactionIcon = '⚡',
+  onToggleInteraction,
 }) {
   return (
     <View style={[styles.container, SHADOWS.glass]}>
@@ -20,6 +25,24 @@ export default function ObjectEditPanel({
           <Text style={styles.doneText}>Done</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Interact Button */}
+      {hasInteraction && (
+        <TouchableOpacity
+          style={[
+            styles.interactButton,
+            interactionActive ? styles.interactButtonActive : null,
+            interactionActive ? SHADOWS.glow : SHADOWS.glass,
+          ]}
+          onPress={onToggleInteraction}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.interactButtonText}>
+            {interactionIcon} {interactionActive ? 'DEACTIVATE' : 'ACTIVATE'} {interactionLabel.toUpperCase()}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       <View style={styles.row}>
         <TouchableOpacity
           style={[styles.iconBtn, SHADOWS.glass]}
@@ -110,6 +133,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#EADBB6',
     letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+  },
+  interactButton: {
+    backgroundColor: 'rgba(255, 179, 0, 0.05)',
+    borderColor: 'rgba(255, 179, 0, 0.25)',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  interactButtonActive: {
+    backgroundColor: 'rgba(255, 179, 0, 0.25)',
+    borderColor: '#FFB300',
+  },
+  interactButtonText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FFB300',
+    letterSpacing: 1,
     fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },
   row: {

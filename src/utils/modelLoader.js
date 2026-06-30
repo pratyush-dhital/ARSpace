@@ -71,6 +71,11 @@ export const MODEL_CONFIGS = {
     supportsPhysics: false,
     label: 'Castle',
     desc: 'Castle Keep',
+    interaction: {
+      type: 'torch_glow',
+      label: 'Torches',
+      icon: '🔥',
+    },
   },
   cottage: {
     id: 'cottage',
@@ -179,6 +184,11 @@ export const MODEL_CONFIGS = {
     supportsPhysics: false,
     label: 'Campfire',
     desc: 'Cozy Fire',
+    interaction: {
+      type: 'fire',
+      label: 'Light Campfire',
+      icon: '🔥',
+    },
   },
   fence: {
     id: 'fence',
@@ -233,6 +243,11 @@ export const MODEL_CONFIGS = {
     supportsPhysics: false,
     label: 'Knight',
     desc: 'Static Warrior',
+    interaction: {
+      type: 'aura',
+      label: 'Battle Aura',
+      icon: '⚡',
+    },
   },
 
   // --- BASIC/DEVELOPER THEME MODELS ---
