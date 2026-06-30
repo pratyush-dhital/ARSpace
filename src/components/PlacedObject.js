@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { ViroBox, ViroSphere, Viro3DObject, ViroNode, ViroParticleEmitter, ViroSpotLight } from '@reactvision/react-viro';
+import { ViroBox, ViroSphere, Viro3DObject, ViroNode, ViroParticleEmitter, ViroOmniLight, ViroPolygon } from '@reactvision/react-viro';
 import { MODEL_CONFIGS } from '../utils/modelLoader';
 
 const SELECTION_RING_SCALE = [0.28, 0.004, 0.28];
@@ -13,6 +13,7 @@ export default function PlacedObject({
   isPreview = false,
   modelConfigs,
   getCameraPosition,
+  registerRef,
 }) {
   const nodeRef = useRef(null);
   const config = modelConfigs ? modelConfigs[obj.type] : MODEL_CONFIGS[obj.type];
@@ -20,6 +21,13 @@ export default function PlacedObject({
 
   const rotation = obj.rotation ?? [0, 0, 0];
   const position = obj.position ?? [0, 0, -1.5];
+  const castleTorchPositions = [
+    [-0.16, 0.32, 0.16],
+    [0.16, 0.32, 0.16],
+    [-0.2, 0.22, -0.1],
+    [0.2, 0.22, -0.1],
+    [0, 0.16, 0.24],
+  ];
 
   const latestPosRef = useRef(position);
   const startPosRef = useRef(position);
@@ -30,6 +38,14 @@ export default function PlacedObject({
   useEffect(() => {
     latestPosRef.current = position;
   }, [position]);
+
+  // Register native node reference with parent ARScene for high-performance gestures
+  useEffect(() => {
+    if (registerRef && !isPreview) {
+      registerRef(obj.id, nodeRef.current);
+      return () => registerRef(obj.id, null);
+    }
+  }, [obj.id, registerRef, isPreview]);
 
   const handlePinch = (pinchState, scaleFactor, source) => {
     if (!isSelected || isPreview) return;
@@ -134,9 +150,9 @@ export default function PlacedObject({
         type={config.fileFormat || 'GLB'}
         materials={config.material ? [config.material] : undefined}
         opacity={opacity}
-        onLoadStart={() => console.log('[Viro3DObject] Load start:', config.source)}
-        onLoadEnd={() => console.log('[Viro3DObject] Load end success')}
-        onError={(event) => console.warn('[Viro3DObject] Load error:', event.nativeEvent.error)}
+        onLoadStart={() => console.log(`[Viro3DObject] Load start for ${config.id} (source: ${config.source})`)}
+        onLoadEnd={() => console.log(`[Viro3DObject] Load end success for ${config.id}`)}
+        onError={(event) => console.warn(`[Viro3DObject] Load error for ${config.id}:`, event.nativeEvent.error)}
       />
     );
   } else {
@@ -163,117 +179,96 @@ export default function PlacedObject({
         <>
           {config.interaction.type === 'fire' && (
             <>
-              {/* Flame Emitter */}
+              {[0, 90].map((yRotation) => (
+                <ViroNode key={`campfire-flame-${yRotation}`} rotation={[0, yRotation, 0]}>
+                  <ViroPolygon
+                    position={[0, 0.18, 0]}
+                    vertices={[[-0.09, -0.08], [-0.045, 0.08], [0, 0.2], [0.05, 0.06], [0.09, -0.08]]}
+                    holes={[]}
+                    materials={['campfireFlame']}
+                  />
+                  <ViroPolygon
+                    position={[0, 0.17, 0.002]}
+                    vertices={[[-0.04, -0.045], [-0.018, 0.07], [0, 0.14], [0.025, 0.045], [0.045, -0.045]]}
+                    holes={[]}
+                    materials={['campfireInnerFlame']}
+                  />
+                </ViroNode>
+              ))}
               <ViroParticleEmitter
-                position={[0, 0.15, 0]}
+                position={[0, 0.13, 0]}
                 duration={1200}
                 run={true}
                 loop={true}
                 fixedToEmitter={true}
                 image={{
                   source: require('../assets/particles/particle_fire.png'),
-                  height: 0.25,
-                  width: 0.25,
+                  height: 0.16,
+                  width: 0.1,
                   bloomThreshold: 0.0,
                 }}
                 spawnBehavior={{
-                  particleLifetime: [800, 1200],
-                  emissionRatePerSecond: [30, 45],
-                  spawnVolume: { shape: 'box', params: [0.15, 0.05, 0.15], spawnOnSurface: false },
-                  maxParticles: 150,
+                  particleLifetime: [450, 850],
+                  emissionRatePerSecond: [24, 34],
+                  spawnVolume: { shape: 'box', params: [0.08, 0.02, 0.08], spawnOnSurface: false },
+                  maxParticles: 60,
                 }}
                 particleAppearance={{
                   opacity: {
-                    initialRange: [0.8, 1.0],
+                    initialRange: [0.6, 0.95],
                     factor: 'time',
-                    interpolation: [{ endValue: 0.0, interval: [600, 1200] }],
+                    interpolation: [{ endValue: 0.0, interval: [450, 900] }],
                   },
                   scale: {
-                    initialRange: [[0.8, 0.8, 0.8], [1.2, 1.2, 1.2]],
+                    initialRange: [[0.7, 0.95, 0.7], [1.15, 1.45, 1.15]],
                     factor: 'time',
-                    interpolation: [{ endValue: [0.1, 0.1, 0.1], interval: [800, 1200] }],
+                    interpolation: [{ endValue: [0.15, 0.15, 0.15], interval: [500, 900] }],
                   },
                 }}
                 particlePhysics={{
                   velocity: {
-                    initialRange: [[-0.08, 0.4, -0.08], [0.08, 0.7, 0.08]],
+                    initialRange: [[-0.03, 0.12, -0.03], [0.03, 0.28, 0.03]],
                   },
                 }}
               />
-              {/* Embers Emitter */}
-              <ViroParticleEmitter
-                position={[0, 0.15, 0]}
-                duration={2000}
-                run={true}
-                loop={true}
-                fixedToEmitter={true}
-                image={{
-                  source: require('../assets/particles/particle_sparkle.png'),
-                  height: 0.05,
-                  width: 0.05,
-                  bloomThreshold: 0.0,
-                }}
-                spawnBehavior={{
-                  particleLifetime: [1200, 1800],
-                  emissionRatePerSecond: [5, 10],
-                  spawnVolume: { shape: 'sphere', params: [0.1], spawnOnSurface: false },
-                  maxParticles: 50,
-                }}
-                particleAppearance={{
-                  opacity: {
-                    initialRange: [0.9, 1.0],
-                    factor: 'time',
-                    interpolation: [{ endValue: 0.0, interval: [1000, 1800] }],
-                  },
-                  scale: {
-                    initialRange: [[0.5, 0.5, 0.5], [1.0, 1.0, 1.0]],
-                    factor: 'time',
-                    interpolation: [{ endValue: [0, 0, 0], interval: [1000, 1800] }],
-                  },
-                }}
-                particlePhysics={{
-                  velocity: {
-                    initialRange: [[-0.15, 0.8, -0.15], [0.15, 1.3, 0.15]],
-                  },
-                }}
-              />
-              {/* Warm Dynamic Light cast onto environment */}
-              <ViroSpotLight
-                position={[0, 0.3, 0]}
-                color="#FF6D00"
-                direction={[0, -1, 0]}
-                intensity={800}
-                innerAngle={5}
-                outerAngle={45}
-                attenuationStartDistance={0.1}
-                attenuationEndDistance={2.5}
+              <ViroOmniLight
+                position={[0, 0.2, 0]}
+                color="#FF8A00"
+                intensity={450}
+                attenuationStartDistance={0.02}
+                attenuationEndDistance={0.35}
               />
             </>
           )}
 
           {config.interaction.type === 'torch_glow' && (
             <>
-              {/* Light Up Castle Torches (Multiple warm spotlights) */}
-              <ViroSpotLight
-                position={[0.3, 0.9, 0.3]}
-                color="#FFA000"
-                direction={[0, -1, 0]}
-                intensity={1200}
-                innerAngle={10}
-                outerAngle={50}
-                attenuationStartDistance={0.2}
-                attenuationEndDistance={3.0}
-              />
-              <ViroSpotLight
-                position={[-0.3, 0.9, -0.3]}
-                color="#FFA000"
-                direction={[0, -1, 0]}
-                intensity={1200}
-                innerAngle={10}
-                outerAngle={50}
-                attenuationStartDistance={0.2}
-                attenuationEndDistance={3.0}
-              />
+              {castleTorchPositions.map((torchPosition, index) => (
+                <ViroNode key={`castle-torch-${index}`} position={torchPosition}>
+                  {[0, 90].map((yRotation) => (
+                    <ViroNode key={`castle-torch-flame-${index}-${yRotation}`} rotation={[0, yRotation, 0]}>
+                      <ViroPolygon
+                        position={[0, 0.008, -0.001]}
+                        vertices={[[-0.024, -0.022], [-0.027, 0.002], [-0.014, 0.026], [0, 0.036], [0.014, 0.026], [0.027, 0.002], [0.024, -0.022]]}
+                        holes={[]}
+                        materials={['torchHalo']}
+                      />
+                      <ViroPolygon
+                        position={[0, 0.009, 0]}
+                        vertices={[[-0.016, -0.017], [-0.018, 0.002], [-0.009, 0.022], [0, 0.032], [0.01, 0.021], [0.018, 0.002], [0.016, -0.017]]}
+                        holes={[]}
+                        materials={['torchFlame']}
+                      />
+                      <ViroPolygon
+                        position={[0, 0.008, 0.001]}
+                        vertices={[[-0.007, -0.009], [-0.009, 0.004], [-0.004, 0.016], [0, 0.023], [0.005, 0.015], [0.009, 0.004], [0.007, -0.009]]}
+                        holes={[]}
+                        materials={['torchInnerFlame']}
+                      />
+                    </ViroNode>
+                  ))}
+                </ViroNode>
+              ))}
             </>
           )}
 

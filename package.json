@@ -12,11 +12,14 @@
     "node": ">=18 <23"
   },
   "dependencies": {
+    "@gltf-transform/core": "^4.4.0",
+    "@gltf-transform/functions": "^4.4.0",
     "@reactvision/react-viro": "~2.41.6",
     "expo": "~50.0.0",
     "expo-document-picker": "~11.10.1",
     "expo-status-bar": "~1.11.1",
     "expo-system-ui": "~2.9.3",
+    "pngjs": "^7.0.0",
     "react": "18.2.0",
     "react-native": "0.73.6"
   },

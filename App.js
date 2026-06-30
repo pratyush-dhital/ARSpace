@@ -334,6 +334,9 @@ export default function App() {
         initialScene={{
           scene: ARScene,
         }}
+        bloomEnabled={true}
+        hdrEnabled={true}
+        pbrEnabled={true}
         viroAppProps={{
           activeObject,
           placedObjects,
@@ -403,7 +406,7 @@ export default function App() {
           assets={combinedAssetsList}
           activeObject={activeObject}
           onSelect={handleSelectPlacementType}
-          disabled={false}
+          disabled={trackingState !== 'found'}
           onAddCustomPress={() => setShowAddCustomModal(true)}
           onConstructPress={triggerHUDPlacement}
           activeObjectLabel={activeObjectLabel}
