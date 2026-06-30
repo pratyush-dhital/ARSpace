@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, Animated, Pressable, Platform, Image, TouchableOpacity } from 'react-native';
 import { COLORS, SHADOWS } from '../assets/styles/theme';
-import { CATEGORY_CONFIG } from '../utils/modelLoader';
+import { THEME_CONFIGS, THEME_CATEGORY_MAPPINGS } from '../utils/modelLoader';
 
 function SelectorCard({ obj, isSelected, onPress, disabled, isAddCard }) {
   const scale = useRef(new Animated.Value(isSelected ? 1.05 : 1.0)).current;
@@ -130,22 +130,38 @@ export default function ObjectSelector({
   onAddCustomPress,
   onConstructPress,
   activeObjectLabel,
+  activeTheme = 'medieval',
+  onThemeChange,
 }) {
-  const [activeCategory, setActiveCategory] = useState('shapes');
+  const categories = THEME_CATEGORY_MAPPINGS[activeTheme] || [];
+  const [activeCategory, setActiveCategory] = useState(categories[0]?.id || 'buildings');
 
-  // Auto-switch tab to match changes in activeObject (e.g. when placing or importing)
+  // Auto-switch category tab to match changes in activeObject (e.g. when placing or importing)
   useEffect(() => {
     if (activeObject) {
       const match = assets.find((o) => (o.id || o.type) === activeObject);
       if (match && match.category && match.category !== activeCategory) {
-        setActiveCategory(match.category);
+        // Only switch category if the asset belongs to the current theme
+        if (match.theme === activeTheme || match.category === 'custom') {
+          setActiveCategory(match.category);
+        }
       }
     }
-  }, [activeObject, assets]);
+  }, [activeObject, assets, activeTheme]);
 
-  const filteredAssets = assets.filter((o) => o.category === activeCategory);
+  // Handle activeCategory switching when activeTheme changes
+  useEffect(() => {
+    const validCategory = categories.find((c) => c.id === activeCategory);
+    if (!validCategory && categories.length > 0) {
+      setActiveCategory(categories[0].id);
+    }
+  }, [activeTheme, categories]);
 
-  // Append placeholder cards for shapes, furniture, nature, buildings, vehicles
+  const filteredAssets = assets.filter(
+    (o) => o.category === activeCategory && (o.theme === activeTheme || o.category === 'custom')
+  );
+
+  // Append placeholder cards for active category
   const displayAssets = [...filteredAssets];
   if (activeCategory !== 'custom') {
     displayAssets.push(
@@ -171,6 +187,31 @@ export default function ObjectSelector({
         {disabled ? 'FINISH MODIFYING TO CHANGE ELEMENT' : 'SELECT WORLD ELEMENT'}
       </Text>
 
+      {/* 1.5. Theme Selector Row */}
+      <View style={styles.themeContainer}>
+        {THEME_CONFIGS.map((theme) => {
+          const isThemeActive = activeTheme === theme.id;
+          return (
+            <Pressable
+              key={theme.id}
+              disabled={disabled}
+              onPress={() => onThemeChange && onThemeChange(theme.id)}
+              style={[
+                styles.themeItem,
+                isThemeActive ? styles.themeItemActive : null,
+              ]}
+            >
+              <Text style={[styles.themeIcon, isThemeActive ? styles.themeIconActive : null]}>
+                {theme.icon}
+              </Text>
+              <Text style={[styles.themeLabel, isThemeActive ? styles.themeLabelActive : null]}>
+                {theme.label.toUpperCase()}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       {/* 2. Scrollable Category Tabs */}
       <View style={styles.tabContainer}>
         <ScrollView
@@ -178,7 +219,7 @@ export default function ObjectSelector({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabBar}
         >
-          {CATEGORY_CONFIG.map((cat) => {
+          {categories.map((cat) => {
             const isCatSelected = activeCategory === cat.id;
             return (
               <Pressable
@@ -401,5 +442,49 @@ const styles = StyleSheet.create({
   },
   selectedTextSecondary: {
     color: '#EADBB6',
+  },
+  themeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    paddingBottom: 10,
+    width: '100%',
+  },
+  themeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginHorizontal: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  themeItemActive: {
+    backgroundColor: 'rgba(197, 160, 89, 0.12)',
+    borderColor: '#C5A059',
+  },
+  themeIcon: {
+    fontSize: 10,
+    marginRight: 4,
+    opacity: 0.6,
+  },
+  themeIconActive: {
+    opacity: 1.0,
+  },
+  themeLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.4)',
+    letterSpacing: 1,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+  },
+  themeLabelActive: {
+    color: '#C5A059',
   },
 });

@@ -17,13 +17,14 @@ import StatusBar from './src/components/StatusBar';
 import ObjectSelector from './src/components/ObjectSelector';
 import ObjectEditPanel from './src/components/ObjectEditPanel';
 import { COLORS, SHADOWS } from './src/assets/styles/theme';
-import { MODEL_CONFIGS } from './src/utils/modelLoader';
+import { MODEL_CONFIGS, DEFAULT_THEME, getFirstAssetOfTheme } from './src/utils/modelLoader';
 import * as DocumentPicker from 'expo-document-picker';
 
 export default function App() {
   const [hasCameraPermission, setHasCameraPermission] = useState(false);
   const [trackingState, setTrackingState] = useState('initializing');
-  const [activeObject, setActiveObject] = useState('cube');
+  const [activeTheme, setActiveTheme] = useState(DEFAULT_THEME);
+  const [activeObject, setActiveObject] = useState(null);
   const [placedObjects, setPlacedObjects] = useState([]);
   const [selectedObjectId, setSelectedObjectId] = useState(null);
   const [showHelp, setShowHelp] = useState(false);
@@ -78,6 +79,7 @@ export default function App() {
     };
     setPlacedObjects((prev) => [...prev, newObject]);
     setSelectedObjectId(null);
+    setActiveObject(null); // Clear preview after placement
   };
 
   const handlePositionChange = (objectId, position) => {
@@ -386,6 +388,8 @@ export default function App() {
           onAddCustomPress={() => setShowAddCustomModal(true)}
           onConstructPress={triggerHUDPlacement}
           activeObjectLabel={activeObjectLabel}
+          activeTheme={activeTheme}
+          onThemeChange={setActiveTheme}
         />
       )}
 
