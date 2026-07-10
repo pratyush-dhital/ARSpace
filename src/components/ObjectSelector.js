@@ -134,28 +134,44 @@ export default function ObjectSelector({
   onThemeChange,
 }) {
   const categories = THEME_CATEGORY_MAPPINGS[activeTheme] || [];
-  const [activeCategory, setActiveCategory] = useState(categories[0]?.id || 'buildings');
+
+  // Initialize selected category for each theme dynamically from the config
+  const [themeCategories, setThemeCategories] = useState(() => {
+    const initial = {};
+    Object.keys(THEME_CATEGORY_MAPPINGS).forEach((themeId) => {
+      initial[themeId] = THEME_CATEGORY_MAPPINGS[themeId][0]?.id || 'custom';
+    });
+    return initial;
+  });
+
+  // Calculate current activeCategory dynamically based on activeTheme and themeCategories map.
+  // Validate that the category exists for the current theme, falling back to the first one if not.
+  const activeCategory = (() => {
+    const remembered = themeCategories[activeTheme];
+    const isValid = categories.some((c) => c.id === remembered);
+    return isValid ? remembered : (categories[0]?.id || 'custom');
+  })();
 
   // Auto-switch category tab to match changes in activeObject (e.g. when placing or importing)
   useEffect(() => {
     if (activeObject) {
       const match = assets.find((o) => (o.id || o.type) === activeObject);
-      if (match && match.category && match.category !== activeCategory) {
-        // Only switch category if the asset belongs to the current theme
-        if (match.theme === activeTheme || match.category === 'custom') {
-          setActiveCategory(match.category);
+      if (match && match.category) {
+        const themeOfAsset = match.theme || 'medieval';
+        setThemeCategories((prev) => ({
+          ...prev,
+          [themeOfAsset]: match.category,
+        }));
+        // If it's custom category, also force it for the current active theme
+        if (match.category === 'custom') {
+          setThemeCategories((prev) => ({
+            ...prev,
+            [activeTheme]: 'custom',
+          }));
         }
       }
     }
-  }, [activeObject, assets, activeTheme]);
-
-  // Handle activeCategory switching when activeTheme changes
-  useEffect(() => {
-    const validCategory = categories.find((c) => c.id === activeCategory);
-    if (!validCategory && categories.length > 0) {
-      setActiveCategory(categories[0].id);
-    }
-  }, [activeTheme, categories]);
+  }, [activeObject, assets]);
 
   const filteredAssets = assets.filter(
     (o) => o.category === activeCategory && (o.theme === activeTheme || o.category === 'custom')
@@ -187,29 +203,35 @@ export default function ObjectSelector({
         {disabled ? 'FINISH MODIFYING TO CHANGE ELEMENT' : 'SELECT WORLD ELEMENT'}
       </Text>
 
-      {/* 1.5. Theme Selector Row */}
+      {/* 1.5. Theme Selector Row (Scrollable) */}
       <View style={styles.themeContainer}>
-        {THEME_CONFIGS.map((theme) => {
-          const isThemeActive = activeTheme === theme.id;
-          return (
-            <Pressable
-              key={theme.id}
-              disabled={disabled}
-              onPress={() => onThemeChange && onThemeChange(theme.id)}
-              style={[
-                styles.themeItem,
-                isThemeActive ? styles.themeItemActive : null,
-              ]}
-            >
-              <Text style={[styles.themeIcon, isThemeActive ? styles.themeIconActive : null]}>
-                {theme.icon}
-              </Text>
-              <Text style={[styles.themeLabel, isThemeActive ? styles.themeLabelActive : null]}>
-                {theme.label.toUpperCase()}
-              </Text>
-            </Pressable>
-          );
-        })}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.themeScrollContainer}
+        >
+          {THEME_CONFIGS.map((theme) => {
+            const isThemeActive = activeTheme === theme.id;
+            return (
+              <Pressable
+                key={theme.id}
+                disabled={disabled}
+                onPress={() => onThemeChange && onThemeChange(theme.id)}
+                style={[
+                  styles.themeItem,
+                  isThemeActive ? styles.themeItemActive : null,
+                ]}
+              >
+                <Text style={[styles.themeIcon, isThemeActive ? styles.themeIconActive : null]}>
+                  {theme.icon}
+                </Text>
+                <Text style={[styles.themeLabel, isThemeActive ? styles.themeLabelActive : null]}>
+                  {theme.label.toUpperCase()}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* 2. Scrollable Category Tabs */}
@@ -225,7 +247,12 @@ export default function ObjectSelector({
               <Pressable
                 key={cat.id}
                 disabled={disabled}
-                onPress={() => setActiveCategory(cat.id)}
+                onPress={() => {
+                  setThemeCategories((prev) => ({
+                    ...prev,
+                    [activeTheme]: cat.id,
+                  }));
+                }}
                 style={[
                   styles.tabItem,
                   isCatSelected ? styles.tabItemActive : null,
@@ -444,14 +471,16 @@ const styles = StyleSheet.create({
     color: '#EADBB6',
   },
   themeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: '100%',
     marginBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
     paddingBottom: 10,
-    width: '100%',
+  },
+  themeScrollContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 4,
   },
   themeItem: {
     flexDirection: 'row',
