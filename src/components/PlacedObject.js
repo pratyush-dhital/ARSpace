@@ -1,6 +1,8 @@
 import React, { useRef, useEffect } from 'react';
 import { ViroBox, ViroSphere, Viro3DObject, ViroNode, ViroParticleEmitter, ViroOmniLight, ViroPolygon } from '@reactvision/react-viro';
 import { MODEL_CONFIGS } from '../utils/modelLoader';
+import TrafficLightAnimation from './animations/TrafficLightAnimation';
+import CarAnimation from './animations/CarAnimation';
 
 const SELECTION_RING_SCALE = [0.28, 0.004, 0.28];
 
@@ -14,6 +16,7 @@ export default function PlacedObject({
   modelConfigs,
   getCameraPosition,
   registerRef,
+  animationTime = 0,
 }) {
   const nodeRef = useRef(null);
   const config = modelConfigs ? modelConfigs[obj.type] : MODEL_CONFIGS[obj.type];
@@ -122,7 +125,25 @@ export default function PlacedObject({
   let model = null;
   const opacity = isPreview ? 0.45 : 1.0;
 
-  if (config.type === 'cube') {
+  if (obj.type === 'traffic_light') {
+    model = (
+      <TrafficLightAnimation
+        obj={obj}
+        config={config}
+        opacity={opacity}
+        animationTime={animationTime}
+      />
+    );
+  } else if (obj.type === 'car') {
+    model = (
+      <CarAnimation
+        obj={obj}
+        config={config}
+        opacity={opacity}
+        animationTime={animationTime}
+      />
+    );
+  } else if (config.type === 'cube') {
     model = (
       <ViroBox
         position={[0, 0, 0]}
@@ -148,7 +169,7 @@ export default function PlacedObject({
         scale={config.scale}
         source={config.source}
         type={config.fileFormat || 'GLB'}
-        materials={config.material ? [config.material] : undefined}
+        {...(config.material ? { materials: [config.material] } : {})}
         opacity={opacity}
         onLoadStart={() => console.log(`[Viro3DObject] Load start for ${config.id} (source: ${config.source})`)}
         onLoadEnd={() => console.log(`[Viro3DObject] Load end success for ${config.id}`)}

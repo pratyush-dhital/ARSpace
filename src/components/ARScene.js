@@ -23,6 +23,32 @@ export default function ARScene(props) {
 
   const arSceneRef = useRef(null);
 
+  const [animationTime, setAnimationTime] = useState(0);
+
+  useEffect(() => {
+    let lastTime = Date.now();
+    let elapsed = 0;
+    let frameId;
+
+    const tick = () => {
+      const now = Date.now();
+      let delta = now - lastTime;
+      lastTime = now;
+
+      // Handle system suspension/sleep mode jumps
+      if (delta < 0 || delta > 1000) {
+        delta = 16.67;
+      }
+
+      elapsed = (elapsed + delta) % 12000;
+      setAnimationTime(elapsed);
+      frameId = requestAnimationFrame(tick);
+    };
+
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  }, []);
+
   // Local camera transform state for rendering the placement preview object locally (keeps HUD decoupled)
   const [cameraTransform, setCameraTransform] = useState({
     position: [0, 0, 0],
@@ -229,6 +255,7 @@ export default function ARScene(props) {
           isSelected={false}
           isPreview={true}
           modelConfigs={modelConfigs}
+          animationTime={animationTime}
         />
       )}
 
@@ -244,6 +271,7 @@ export default function ARScene(props) {
           modelConfigs={modelConfigs}
           getCameraPosition={() => cameraTransformRef.current.position}
           registerRef={registerRef}
+          animationTime={animationTime}
         />
       ))}
     </ViroARScene>

@@ -59,7 +59,7 @@ export default function ObjectEditPanel({
           activeOpacity={0.7}
         >
           <Text style={styles.iconText}>⏬</Text>
-          <Text style={styles.btnLabel}>Pull</Text>
+          <Text style={styles.btnLabel}>Zoom In</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -77,7 +77,7 @@ export default function ObjectEditPanel({
           activeOpacity={0.7}
         >
           <Text style={styles.iconText}>⏫</Text>
-          <Text style={styles.btnLabel}>Push</Text>
+          <Text style={styles.btnLabel}>Zoom Out</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
